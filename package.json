@@ -12,18 +12,20 @@
   "dependencies": {
     "@prisma/adapter-pg": "^5.10.0",
     "@prisma/client": "^5.10.0",
+    "lucide-react": "^0.511.0",
     "next": "16.2.4",
+    "pg": "^8.16.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "^2.12.7"
   },
   "devDependencies": {
-    "prisma": "^5.10.0",
-    "typescript": "^5.3.3",
     "@types/node": "^20.11.17",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "eslint": "^8.56.0",
-    "eslint-config-next": "16.2.4"
+    "eslint-config-next": "16.2.4",
+    "prisma": "^5.10.0",
+    "typescript": "^5.3.3"
   }
 }
