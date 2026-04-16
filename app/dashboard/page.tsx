@@ -59,13 +59,23 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
 }
 
+function tooltipCurrencyFormatter(value: unknown) {
+  if (typeof value === "number") {
+    return formatCurrency(value);
+  }
+
+  return formatCurrency(Number(value ?? 0));
+}
+
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"income" | "expense">("income");
   const [category, setCategory] = useState("Salário");
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -104,7 +114,10 @@ export default function DashboardPage() {
   }, [totalIncome, totalExpense]);
 
   const monthlyBarData = useMemo(() => {
-    const grouped = new Map<string, { month: string; income: number; expense: number }>();
+    const grouped = new Map<
+      string,
+      { month: string; income: number; expense: number }
+    >();
 
     transactions.forEach((transaction) => {
       const d = new Date(transaction.date);
@@ -311,11 +324,14 @@ export default function DashboardPage() {
                     paddingAngle={4}
                   >
                     {pieData.map((_, index) => (
-                      <Cell key={index} fill={pieColors[index % pieColors.length]} />
+                      <Cell
+                        key={index}
+                        fill={pieColors[index % pieColors.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={tooltipCurrencyFormatter}
                     contentStyle={{
                       backgroundColor: "#0f172a",
                       border: "1px solid #334155",
@@ -338,7 +354,7 @@ export default function DashboardPage() {
                   <XAxis dataKey="month" stroke="#94a3b8" />
                   <YAxis stroke="#94a3b8" />
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={tooltipCurrencyFormatter}
                     contentStyle={{
                       backgroundColor: "#0f172a",
                       border: "1px solid #334155",
@@ -369,7 +385,9 @@ export default function DashboardPage() {
               >
                 <div>
                   <p className="text-lg font-medium">{transaction.title}</p>
-                  <p className="text-sm text-slate-400">{transaction.category}</p>
+                  <p className="text-sm text-slate-400">
+                    {transaction.category}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     {formatDate(transaction.date)}
                   </p>
