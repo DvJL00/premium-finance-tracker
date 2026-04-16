@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+const API_KEY = process.env.API_KEY;
+
+function checkAuth(req: Request) {
+  const key = req.headers.get("x-api-key");
+  return !!API_KEY && key === API_KEY;
+}
+
+export async function GET(req: Request) {
   try {
+    if (!checkAuth(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const transactions = await prisma.transaction.findMany({
       orderBy: { date: "desc" },
     });
@@ -20,6 +33,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!checkAuth(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { title, amount, type, category, date } = body;
 
@@ -32,7 +49,7 @@ export async function POST(req: Request) {
 
     const transaction = await prisma.transaction.create({
       data: {
-        title: String(title),
+        title: String(title).trim(),
         amount: Number(amount),
         type: String(type),
         category: String(category),
@@ -53,6 +70,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    if (!checkAuth(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { id } = body;
 

@@ -82,6 +82,9 @@ export default function DashboardPage() {
   async function loadTransactions() {
     const res = await fetch("/api/transactions", {
       cache: "no-store",
+      headers: {
+        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
+      },
     });
 
     const data = await res.json();
@@ -148,12 +151,19 @@ export default function DashboardPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!title.trim() || !amount || !category || !date) {
+      alert("Preencha todos os campos");
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch("/api/transactions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
       },
       body: JSON.stringify({
         title,
@@ -188,6 +198,7 @@ export default function DashboardPage() {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
       },
       body: JSON.stringify({ id }),
     });
@@ -300,8 +311,8 @@ export default function DashboardPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="md:col-span-2 rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={loading || !title.trim() || !amount || !category || !date}
+              className="md:col-span-2 rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Salvando..." : "Adicionar transação"}
             </button>
@@ -312,7 +323,7 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
             <h2 className="mb-5 text-2xl font-semibold">Entradas x Saídas</h2>
 
-            <div className="h-80">
+            <div className="h-80 min-h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -347,7 +358,7 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
             <h2 className="mb-5 text-2xl font-semibold">Resumo por mês</h2>
 
-            <div className="h-80">
+            <div className="h-80 min-h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyBarData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
