@@ -4,34 +4,26 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
-    "@prisma/adapter-pg": "^7.7.0",
-    "@prisma/client": "^7.7.0",
-    "bcrypt": "^6.0.0",
-    "lucide-react": "^1.8.0",
+    "@prisma/adapter-pg": "^5.10.0",
+    "@prisma/client": "^5.10.0",
     "next": "16.2.4",
-    "next-auth": "^4.24.14",
-    "pg": "^8.20.0",
-    "prisma": "^7.7.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-hook-form": "^7.72.1",
-    "recharts": "^3.8.1",
-    "zod": "^4.3.6"
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.4",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "prisma": "^5.10.0",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.17",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "16.2.4"
   }
 }
