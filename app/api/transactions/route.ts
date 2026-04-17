@@ -25,7 +25,10 @@ export async function GET(req: Request) {
     console.error("GET /api/transactions error:", error);
 
     return NextResponse.json(
-      { error: "Erro ao buscar transações" },
+      {
+        error: "Erro ao buscar transações",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
@@ -62,7 +65,10 @@ export async function POST(req: Request) {
     console.error("POST /api/transactions error:", error);
 
     return NextResponse.json(
-      { error: "Erro ao criar transação" },
+      {
+        error: "Erro ao criar transação",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
@@ -93,7 +99,10 @@ export async function DELETE(req: Request) {
     console.error("DELETE /api/transactions error:", error);
 
     return NextResponse.json(
-      { error: "Erro ao excluir transação" },
+      {
+        error: "Erro ao excluir transação",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
