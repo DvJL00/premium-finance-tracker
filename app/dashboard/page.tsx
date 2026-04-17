@@ -1,26 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Trash2,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  CalendarDays,
-} from "lucide-react";
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Legend,
-} from "recharts";
+import { Pencil, Trash2, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AppShell } from "../components/app-shell";
+import { ThemeProvider } from "../components/theme-provider";
 
 type Transaction = {
   id: string;
@@ -29,7 +12,6 @@ type Transaction = {
   type: "income" | "expense";
   category: string;
   date: string;
-  createdAt: string;
 };
 
 const categoryOptions = [
@@ -46,8 +28,6 @@ const categoryOptions = [
   "Outros",
 ];
 
-const pieColors = ["#22c55e", "#ef4444"];
-
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
     style: "currency",
@@ -59,32 +39,33 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
 }
 
-function tooltipCurrencyFormatter(value: unknown) {
-  if (typeof value === "number") {
-    return formatCurrency(value);
-  }
-
-  return formatCurrency(Number(value ?? 0));
-}
-
-export default function DashboardPage() {
+function DashboardContent() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"income" | "expense">("income");
   const [category, setCategory] = useState("Salário");
-  const [date, setDate] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [search, setSearch] = useState("");
 
   async function loadTransactions() {
-    const res = await fetch("/api/transactions", {
+    const params = new URLSearchParams();
+
+    if (filterMonth) params.set("month", filterMonth);
+    if (filterCategory) params.set("category", filterCategory);
+    if (filterType) params.set("type", filterType);
+    if (search) params.set("search", search);
+
+    const res = await fetch(`/api/transactions?${params.toString()}`, {
       cache: "no-store",
-      headers: {
-        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
-      },
     });
 
     const data = await res.json();
@@ -93,101 +74,64 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadTransactions();
-  }, []);
+  }, [filterMonth, filterCategory, filterType, search]);
 
-  const totalIncome = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "income")
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-  }, [transactions]);
+  const totalIncome = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.type === "income")
+        .reduce((acc, t) => acc + Number(t.amount), 0),
+    [transactions]
+  );
 
-  const totalExpense = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "expense")
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-  }, [transactions]);
+  const totalExpense = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.type === "expense")
+        .reduce((acc, t) => acc + Number(t.amount), 0),
+    [transactions]
+  );
 
   const balance = totalIncome - totalExpense;
 
-  const pieData = useMemo(() => {
-    return [
-      { name: "Entradas", value: totalIncome },
-      { name: "Saídas", value: totalExpense },
-    ].filter((item) => item.value > 0);
-  }, [totalIncome, totalExpense]);
-
-  const monthlyBarData = useMemo(() => {
-    const grouped = new Map<
-      string,
-      { month: string; income: number; expense: number }
-    >();
-
-    transactions.forEach((transaction) => {
-      const d = new Date(transaction.date);
-      const month = d.toLocaleDateString("pt-BR", {
-        month: "short",
-        year: "2-digit",
-      });
-
-      if (!grouped.has(month)) {
-        grouped.set(month, {
-          month,
-          income: 0,
-          expense: 0,
-        });
-      }
-
-      const current = grouped.get(month)!;
-
-      if (transaction.type === "income") {
-        current.income += Number(transaction.amount);
-      } else {
-        current.expense += Number(transaction.amount);
-      }
-    });
-
-    return Array.from(grouped.values());
-  }, [transactions]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!title.trim() || !amount || !category || !date) {
-      alert("Preencha todos os campos");
-      return;
-    }
-
-    setLoading(true);
-
-    const res = await fetch("/api/transactions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
-      },
-      body: JSON.stringify({
-        title,
-        amount: Number(amount),
-        type,
-        category,
-        date,
-      }),
-    });
-
-    setLoading(false);
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => null);
-      alert(errorData?.error || "Erro ao adicionar transação");
-      return;
-    }
-
+  function resetForm() {
     setTitle("");
     setAmount("");
     setType("income");
     setCategory("Salário");
     setDate(new Date().toISOString().split("T")[0]);
+    setEditingId(null);
+  }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      title,
+      amount: Number(amount),
+      type,
+      category,
+      date,
+    };
+
+    const res = await fetch("/api/transactions", {
+      method: editingId ? "PATCH" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
+    });
+
+    const data = await res.json().catch(() => null);
+    setLoading(false);
+
+    if (!res.ok) {
+      alert(data?.error || "Erro ao salvar transação");
+      return;
+    }
+
+    resetForm();
     await loadTransactions();
   }
 
@@ -198,68 +142,73 @@ export default function DashboardPage() {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.NEXT_PUBLIC_API_KEY!,
       },
       body: JSON.stringify({ id }),
     });
 
+    const data = await res.json().catch(() => null);
     setDeletingId(null);
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => null);
-      alert(errorData?.error || "Erro ao excluir transação");
+      alert(data?.error || "Erro ao excluir transação");
       return;
     }
 
     await loadTransactions();
   }
 
+  function startEdit(transaction: Transaction) {
+    setEditingId(transaction.id);
+    setTitle(transaction.title);
+    setAmount(String(transaction.amount));
+    setType(transaction.type);
+    setCategory(transaction.category);
+    setDate(new Date(transaction.date).toISOString().split("T")[0]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
-    <main className="min-h-screen bg-[#030712] text-white">
-      <div className="mx-auto max-w-6xl px-4 py-10 md:px-6">
-        <div className="mb-10 flex flex-col gap-3">
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-            Finance Tracker
-          </h1>
-          <p className="text-sm text-slate-400 md:text-base">
-            Controle financeiro com dashboard, gráficos e persistência em banco.
+    <AppShell
+      title="Dashboard"
+      subtitle="Visualize seu saldo, gerencie transações e acompanhe sua evolução financeira."
+    >
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="app-panel rounded-3xl p-6">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm app-muted">Entradas</span>
+            <TrendingUp className="h-5 w-5 text-[var(--success)]" />
+          </div>
+          <p className="text-3xl font-bold text-[var(--success)]">
+            {formatCurrency(totalIncome)}
           </p>
         </div>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-slate-400">Entradas</span>
-              <TrendingUp className="h-5 w-5 text-green-400" />
-            </div>
-            <p className="text-3xl font-bold text-green-400">
-              {formatCurrency(totalIncome)}
-            </p>
+        <div className="app-panel rounded-3xl p-6">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm app-muted">Saídas</span>
+            <TrendingDown className="h-5 w-5 text-[var(--danger)]" />
           </div>
+          <p className="text-3xl font-bold text-[var(--danger)]">
+            {formatCurrency(totalExpense)}
+          </p>
+        </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-slate-400">Saídas</span>
-              <TrendingDown className="h-5 w-5 text-red-400" />
-            </div>
-            <p className="text-3xl font-bold text-red-400">
-              {formatCurrency(totalExpense)}
-            </p>
+        <div className="app-panel rounded-3xl p-6">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm app-muted">Saldo</span>
+            <Wallet className="h-5 w-5 text-[var(--primary)]" />
           </div>
+          <p className="text-3xl font-bold text-[var(--primary)]">
+            {formatCurrency(balance)}
+          </p>
+        </div>
+      </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-slate-400">Saldo</span>
-              <Wallet className="h-5 w-5 text-cyan-400" />
-            </div>
-            <p className="text-3xl font-bold text-cyan-400">
-              {formatCurrency(balance)}
-            </p>
-          </div>
-        </section>
-
-        <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-          <h2 className="mb-5 text-2xl font-semibold">Nova transação</h2>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
+        <section className="app-panel rounded-3xl p-6">
+          <h3 className="mb-5 text-xl font-bold">
+            {editingId ? "Editar transação" : "Nova transação"}
+          </h3>
 
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
             <input
@@ -267,7 +216,7 @@ export default function DashboardPage() {
               placeholder="Título"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              className="app-input"
             />
 
             <input
@@ -275,161 +224,164 @@ export default function DashboardPage() {
               placeholder="Valor"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              className="app-input"
             />
 
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              className="app-input"
             >
               {categoryOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+                <option key={option}>{option}</option>
               ))}
             </select>
 
             <select
               value={type}
               onChange={(e) => setType(e.target.value as "income" | "expense")}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+              className="app-input"
             >
               <option value="income">Entrada</option>
               <option value="expense">Saída</option>
             </select>
 
-            <div className="relative md:col-span-2">
-              <CalendarDays className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-12 py-3 text-white outline-none transition focus:border-cyan-400"
-              />
-            </div>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="app-input md:col-span-2"
+            />
 
-            <button
-              type="submit"
-              disabled={loading || !title.trim() || !amount || !category || !date}
-              className="md:col-span-2 rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "Salvando..." : "Adicionar transação"}
-            </button>
+            <div className="flex gap-3 md:col-span-2">
+              <button
+                type="submit"
+                disabled={loading || !title.trim() || !amount || !category || !date}
+                className="app-button app-button-primary flex-1"
+              >
+                {loading
+                  ? "Salvando..."
+                  : editingId
+                  ? "Salvar edição"
+                  : "Adicionar transação"}
+              </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="app-button app-button-secondary"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
           </form>
         </section>
 
-        <section className="mb-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-            <h2 className="mb-5 text-2xl font-semibold">Entradas x Saídas</h2>
+        <section className="app-panel rounded-3xl p-6">
+          <h3 className="mb-5 text-xl font-bold">Filtros</h3>
 
-            <div className="h-80 min-h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={70}
-                    outerRadius={110}
-                    paddingAngle={4}
-                  >
-                    {pieData.map((_, index) => (
-                      <Cell
-                        key={index}
-                        fill={pieColors[index % pieColors.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={tooltipCurrencyFormatter}
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #334155",
-                      borderRadius: "12px",
-                    }}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <div className="grid gap-4">
+            <input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="app-input"
+            />
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-            <h2 className="mb-5 text-2xl font-semibold">Resumo por mês</h2>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="app-input"
+            >
+              <option value="">Todas categorias</option>
+              {categoryOptions.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
 
-            <div className="h-80 min-h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyBarData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="month" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip
-                    formatter={tooltipCurrencyFormatter}
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #334155",
-                      borderRadius: "12px",
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="income" fill="#22c55e" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="expense" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </section>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="app-input"
+            >
+              <option value="">Todos tipos</option>
+              <option value="income">Entrada</option>
+              <option value="expense">Saída</option>
+            </select>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20 backdrop-blur">
-          <h2 className="mb-5 text-2xl font-semibold">Transações</h2>
-
-          <div className="space-y-3">
-            {transactions.length === 0 && (
-              <p className="text-slate-400">Nenhuma transação cadastrada.</p>
-            )}
-
-            {transactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-[#020617] px-4 py-4 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p className="text-lg font-medium">{transaction.title}</p>
-                  <p className="text-sm text-slate-400">
-                    {transaction.category}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatDate(transaction.date)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <p
-                    className={
-                      transaction.type === "income"
-                        ? "text-lg font-semibold text-green-400"
-                        : "text-lg font-semibold text-red-400"
-                    }
-                  >
-                    {transaction.type === "income" ? "+" : "-"}{" "}
-                    {formatCurrency(transaction.amount)}
-                  </p>
-
-                  <button
-                    onClick={() => handleDelete(transaction.id)}
-                    disabled={deletingId === transaction.id}
-                    className="rounded-xl border border-red-500/40 p-2 text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Excluir transação"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+            <input
+              type="text"
+              placeholder="Buscar por nome"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="app-input"
+            />
           </div>
         </section>
       </div>
-    </main>
+
+      <section className="app-panel mt-6 rounded-3xl p-6">
+        <h3 className="mb-5 text-xl font-bold">Transações</h3>
+
+        <div className="space-y-3">
+          {transactions.length === 0 && (
+            <p className="app-muted">Nenhuma transação encontrada.</p>
+          )}
+
+          {transactions.map((transaction) => (
+            <div
+              key={transaction.id}
+              className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-soft)] px-4 py-4 md:flex-row md:items-center md:justify-between"
+            >
+              <div>
+                <p className="text-lg font-semibold">{transaction.title}</p>
+                <p className="text-sm app-muted">{transaction.category}</p>
+                <p className="mt-1 text-xs app-muted">{formatDate(transaction.date)}</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <p
+                  className={
+                    transaction.type === "income"
+                      ? "text-lg font-bold text-[var(--success)]"
+                      : "text-lg font-bold text-[var(--danger)]"
+                  }
+                >
+                  {transaction.type === "income" ? "+" : "-"}{" "}
+                  {formatCurrency(transaction.amount)}
+                </p>
+
+                <button
+                  onClick={() => startEdit(transaction)}
+                  className="rounded-xl border border-[var(--border)] p-2 hover:bg-[var(--bg-muted)]"
+                  title="Editar"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() => handleDelete(transaction.id)}
+                  disabled={deletingId === transaction.id}
+                  className="rounded-xl border border-[var(--border)] p-2 hover:bg-[var(--bg-muted)] disabled:opacity-60"
+                  title="Excluir"
+                >
+                  <Trash2 className="h-4 w-4 text-[var(--danger)]" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </AppShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <ThemeProvider>
+      <DashboardContent />
+    </ThemeProvider>
   );
 }

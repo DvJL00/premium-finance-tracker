@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Premium Finance Tracker",
-  description: "Controle financeiro full stack com Next.js, Prisma e PostgreSQL",
+  title: "TentaFinZap",
+  description: "Controle financeiro inteligente",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -12,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
