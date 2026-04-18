@@ -1,7 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { prisma } from "./prisma";
 
-const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-secret-change-this");
+const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-secret");
 
 export type AuthPayload = {
   userId: string;
@@ -28,8 +29,31 @@ export async function getCurrentUser() {
   if (!token) return null;
 
   try {
-    return await verifySessionToken(token);
+    const session = await verifySessionToken(token);
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: {
+        companyLinks: {
+          include: { company: true },
+        },
+      },
+    });
+
+    return user;
   } catch {
     return null;
   }
+}
+
+export function hasActiveTrial(user: { plan: string; trialEndsAt: Date | null }) {
+  return user.plan === "trial" && !!user.trialEndsAt && user.trialEndsAt > new Date();
+}
+
+export function hasActivePaidPlan(user: { plan: string; planEndsAt: Date | null }) {
+  return ["pro", "enterprise"].includes(user.plan) && !!user.planEndsAt && user.planEndsAt > new Date();
+}
+
+export function canUseProFeatures(user: { plan: string; trialEndsAt: Date | null; planEndsAt: Date | null }) {
+  return hasActiveTrial(user) || hasActivePaidPlan(user);
 }

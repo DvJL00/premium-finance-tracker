@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/auth";
+import { canUsePaidFeatures } from "../../lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        userId: currentUser.userId,
+        userId: currentUser.id,
         ...(category ? { category } : {}),
         ...(type ? { type } : {}),
         ...(search
@@ -78,6 +79,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Preencha todos os campos" }, { status: 400 });
     }
 
+    const isPaid = canUsePaidFeatures(currentUser);
+
+    if (!isPaid) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+      const monthlyCount = await prisma.transaction.count({
+        where: {
+          userId: currentUser.id,
+          date: {
+            gte: start,
+            lt: end,
+          },
+        },
+      });
+
+      if (monthlyCount >= 50) {
+        return NextResponse.json(
+          {
+            error: "O plano Free permite até 50 transações por mês. Faça upgrade para continuar.",
+            code: "FREE_LIMIT_REACHED",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const transaction = await prisma.transaction.create({
       data: {
         title: String(title).trim(),
@@ -85,7 +114,7 @@ export async function POST(req: Request) {
         type: String(type),
         category: String(category),
         date: new Date(date),
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
     });
 
@@ -116,11 +145,19 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Preencha todos os campos" }, { status: 400 });
     }
 
-    const transaction = await prisma.transaction.update({
+    const existing = await prisma.transaction.findFirst({
       where: {
         id,
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
+    }
+
+    const transaction = await prisma.transaction.update({
+      where: { id },
       data: {
         title: String(title).trim(),
         amount: Number(amount),
@@ -157,11 +194,19 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
     }
 
-    await prisma.transaction.delete({
+    const existing = await prisma.transaction.findFirst({
       where: {
         id,
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
+    }
+
+    await prisma.transaction.delete({
+      where: { id },
     });
 
     return NextResponse.json({ ok: true });

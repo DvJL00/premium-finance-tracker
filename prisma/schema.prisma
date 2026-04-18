@@ -1,41 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-model User {
-  id               String            @id @default(cuid())
-  name             String
-  email            String            @unique
-  passwordHash     String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-
-  transactions     Transaction[]
-  installmentPlans InstallmentPlan[]
-  paymentReminders PaymentReminder[]
-}
-
-model Transaction {
-  id            String   @id @default(cuid())
-  title         String
-  amount        Float
-  type          String
-  category      String
-  date          DateTime
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   installmentId String?
-  installment   InstallmentItem? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  installment   InstallmentItem?  @relation(fields: [installmentId], references: [id], onDelete: SetNull)
 }
 
 model InstallmentPlan {
@@ -54,15 +20,15 @@ model InstallmentPlan {
 }
 
 model InstallmentItem {
-  id                String   @id @default(cuid())
+  id                String            @id @default(cuid())
   installmentNumber Int
   amount            Float
   dueDate           DateTime
-  status            String   @default("pending")
-  createdAt         DateTime @default(now())
+  status            String            @default("pending")
+  createdAt         DateTime          @default(now())
 
   planId            String
-  plan              InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan              InstallmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   transactions      Transaction[]
 }
@@ -83,4 +49,22 @@ model PaymentReminder {
 
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  provider     String
+  providerRef  String?   @unique
+  plan         String
+  billingCycle String
+  amount       Float
+  status       String    @default("pending")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  companyId    String?
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
 }

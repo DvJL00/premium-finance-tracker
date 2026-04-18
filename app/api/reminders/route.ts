@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/auth";
+import { requirePaidPlan } from "../../lib/feature-guard";
 
 export async function GET() {
   try {
@@ -10,9 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const reminders = await prisma.paymentReminder.findMany({
       where: {
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
       orderBy: {
         dueDate: "asc",
@@ -39,14 +43,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const body = await req.json();
-    const { title, amount, category, dueDate, type, recurring, frequency, notes } = body;
+    const { title, amount, category, dueDate, type } = body;
 
     if (!title || !amount || !category || !dueDate || !type) {
-      return NextResponse.json(
-        { error: "Preencha os campos obrigatórios" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Preencha os campos obrigatórios" }, { status: 400 });
     }
 
     const reminder = await prisma.paymentReminder.create({
@@ -56,10 +60,7 @@ export async function POST(req: Request) {
         category: String(category),
         dueDate: new Date(dueDate),
         type: String(type),
-        recurring: Boolean(recurring),
-        frequency: frequency || null,
-        notes: notes || null,
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
     });
 
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Erro ao criar pagamento agendado",
+        error: "Erro ao criar lembrete",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
@@ -83,35 +84,29 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const body = await req.json();
     const { id, status } = body;
 
     if (!id || !status) {
-      return NextResponse.json(
-        { error: "ID e status são obrigatórios" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID e status são obrigatórios" }, { status: 400 });
     }
 
     const existingReminder = await prisma.paymentReminder.findFirst({
       where: {
         id: String(id),
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
     });
 
     if (!existingReminder) {
-      return NextResponse.json(
-        { error: "Lembrete não encontrado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Lembrete não encontrado" }, { status: 404 });
     }
 
     if (existingReminder.status === "paid") {
-      return NextResponse.json(
-        { error: "Esse lembrete já foi marcado como pago" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Esse lembrete já foi marcado como pago" }, { status: 400 });
     }
 
     const updatedReminder = await prisma.paymentReminder.update({
@@ -131,7 +126,7 @@ export async function PATCH(req: Request) {
           type: "expense",
           category: existingReminder.category,
           date: new Date(existingReminder.dueDate),
-          userId: currentUser.userId,
+          userId: currentUser.id,
         },
       });
     }
@@ -140,7 +135,7 @@ export async function PATCH(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Erro ao atualizar agenda",
+        error: "Erro ao atualizar lembrete",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

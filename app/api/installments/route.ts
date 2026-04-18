@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/auth";
+import { requirePaidPlan } from "../../lib/feature-guard";
 
 export async function GET() {
   try {
@@ -10,9 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const plans = await prisma.installmentPlan.findMany({
       where: {
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
       include: {
         items: {
@@ -46,31 +50,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const body = await req.json();
     const { title, totalAmount, installments, category, startDate } = body;
 
     if (!title || !totalAmount || !installments || !category || !startDate) {
-      return NextResponse.json(
-        { error: "Preencha todos os campos" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Preencha todos os campos" }, { status: 400 });
     }
 
     const total = Number(totalAmount);
     const count = Number(installments);
 
     if (Number.isNaN(total) || total <= 0) {
-      return NextResponse.json(
-        { error: "Valor total inválido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Valor total inválido" }, { status: 400 });
     }
 
     if (Number.isNaN(count) || count <= 0) {
-      return NextResponse.json(
-        { error: "Quantidade de parcelas inválida" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Quantidade de parcelas inválida" }, { status: 400 });
     }
 
     const installmentValue = Number((total / count).toFixed(2));
@@ -82,7 +80,7 @@ export async function POST(req: Request) {
         installments: count,
         category: String(category),
         startDate: new Date(startDate),
-        userId: currentUser.userId,
+        userId: currentUser.id,
       },
     });
 
@@ -123,21 +121,21 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const block = requirePaidPlan(currentUser);
+    if (block) return block;
+
     const body = await req.json();
     const { itemId, status } = body;
 
     if (!itemId || !status) {
-      return NextResponse.json(
-        { error: "itemId e status são obrigatórios" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "itemId e status são obrigatórios" }, { status: 400 });
     }
 
     const existingItem = await prisma.installmentItem.findFirst({
       where: {
         id: String(itemId),
         plan: {
-          userId: currentUser.userId,
+          userId: currentUser.id,
         },
       },
       include: {
@@ -146,17 +144,11 @@ export async function PATCH(req: Request) {
     });
 
     if (!existingItem) {
-      return NextResponse.json(
-        { error: "Parcela não encontrada" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Parcela não encontrada" }, { status: 404 });
     }
 
     if (existingItem.status === "paid") {
-      return NextResponse.json(
-        { error: "Essa parcela já foi marcada como paga" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Essa parcela já foi marcada como paga" }, { status: 400 });
     }
 
     const updatedItem = await prisma.installmentItem.update({
@@ -176,7 +168,7 @@ export async function PATCH(req: Request) {
           type: "expense",
           category: existingItem.plan.category,
           date: new Date(existingItem.dueDate),
-          userId: currentUser.userId,
+          userId: currentUser.id,
           installmentId: existingItem.id,
         },
       });

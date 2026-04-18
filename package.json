@@ -13,11 +13,13 @@
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.2",
     "lucide-react": "^0.511.0",
+    "mercadopago": "^2.12.0",
     "next": "16.2.4",
     "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
+    "twilio": "^5.13.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
