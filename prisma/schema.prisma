@@ -1,70 +1,141 @@
 generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  passwordHash String
+  phoneNumber  String? @unique
+
+  plan         String    @default("free")
+  billingCycle String?
+  trialEndsAt  DateTime?
+  planEndsAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyLinks     CompanyUser[]
+  transactions     Transaction[]
+  installmentPlans InstallmentPlan[]
+  paymentReminders PaymentReminder[]
+  payments         Payment[]
+}
+
+model Company {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  plan         String    @default("enterprise")
+  billingCycle String?
+  trialEndsAt  DateTime?
+  planEndsAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  users    CompanyUser[]
+  payments Payment[]
+}
+
+model CompanyUser {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  title     String
+  amount    Float
+  type      String
+  category  String
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   installmentId String?
-  installment   InstallmentItem?  @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  installment   InstallmentItem? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
 }
 
 model InstallmentPlan {
-  id           String            @id @default(cuid())
+  id           String   @id @default(cuid())
   title        String
   totalAmount  Float
   installments Int
   category     String
   startDate    DateTime
-  createdAt    DateTime          @default(now())
+  createdAt    DateTime @default(now())
 
-  userId       String
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  items        InstallmentItem[]
+  items InstallmentItem[]
 }
 
 model InstallmentItem {
-  id                String            @id @default(cuid())
+  id                String   @id @default(cuid())
   installmentNumber Int
   amount            Float
   dueDate           DateTime
-  status            String            @default("pending")
-  createdAt         DateTime          @default(now())
+  status            String   @default("pending")
+  createdAt         DateTime @default(now())
 
-  planId            String
-  plan              InstallmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId String
+  plan   InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
-  transactions      Transaction[]
+  transactions Transaction[]
 }
 
 model PaymentReminder {
-  id          String   @id @default(cuid())
-  title       String
-  amount      Float
-  category    String
-  dueDate     DateTime
-  type        String
-  status      String   @default("pending")
-  recurring   Boolean  @default(false)
-  frequency   String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  title     String
+  amount    Float
+  category  String
+  dueDate   DateTime
+  type      String
+  status    String   @default("pending")
+  recurring Boolean  @default(false)
+  frequency String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   provider     String
-  providerRef  String?   @unique
+  providerRef  String?  @unique
   plan         String
   billingCycle String
   amount       Float
-  status       String    @default("pending")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  userId       String?
-  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  companyId    String?
-  company      Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 }
