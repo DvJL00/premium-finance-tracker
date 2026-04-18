@@ -22,7 +22,7 @@ export async function PATCH(req: Request) {
 
     const updatedUser = await prisma.user.update({
       where: {
-        id: currentUser.userId,
+        id: currentUser.id,
       },
       data: {
         phoneNumber: String(phoneNumber).trim(),
